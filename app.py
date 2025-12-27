@@ -1,32 +1,59 @@
 import streamlit as st
 import pandas as pd
 import pickle
+import os
 
-# Load saved model & encoders
-model = pickle.load(open("model.pkl", "rb"))
-le_city = pickle.load(open("encoder_city.pkl", "rb"))
-le_cuisine = pickle.load(open("encoder_cuisine.pkl", "rb"))
+st.set_page_config(
+    page_title="Restaurant Rating Predictor",
+    layout="centered"
+)
 
-st.set_page_config(page_title="Restaurant Rating Predictor", layout="centered")
+# -------- Load files safely --------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+model = pickle.load(open(os.path.join(BASE_DIR, "model.pkl"), "rb"))
+le_city = pickle.load(open(os.path.join(BASE_DIR, "encoder_city.pkl"), "rb"))
+le_cuisine = pickle.load(open(os.path.join(BASE_DIR, "encoder_cuisine.pkl"), "rb"))
+
+# -------- UI --------
 st.title("🍽️ Restaurant Rating Prediction App")
-st.write("Predict restaurant ratings using Machine Learning")
+st.write("Predict restaurant ratings using a Machine Learning model")
 
-# User Inputs
-votes = st.number_input("Number of Votes", min_value=0, step=1)
-price_range = st.selectbox("Price Range (1 = Low, 4 = High)", [1, 2, 3, 4])
+# Numeric inputs
+votes = st.number_input(
+    "Number of Votes",
+    min_value=0,
+    step=1
+)
 
-city = st.text_input("City Name")
-cuisine = st.text_input("Cuisine Type")
+price_range = st.selectbox(
+    "Price Range (1 = Low, 4 = High)",
+    [1, 2, 3, 4]
+)
 
+# 🔥 DROPDOWNS instead of text input
+city = st.selectbox(
+    "Select City",
+    sorted(le_city.classes_)
+)
+
+cuisine = st.selectbox(
+    "Select Cuisine",
+    sorted(le_cuisine.classes_)
+)
+
+# -------- Prediction --------
 if st.button("Predict Rating"):
-    try:
-        city_encoded = le_city.transform([city])[0]
-        cuisine_encoded = le_cuisine.transform([cuisine])[0]
+    city_encoded = le_city.transform([city])[0]
+    cuisine_encoded = le_cuisine.transform([cuisine])[0]
 
-        prediction = model.predict([[votes, price_range, city_encoded, cuisine_encoded]])
+    prediction = model.predict(
+        [[votes, price_range, city_encoded, cuisine_encoded]]
+    )
 
-        st.success(f"⭐ Predicted Restaurant Rating: {round(prediction[0], 2)}")
+    rating = round(float(prediction[0]), 2)
 
-    except:
-        st.error("City or Cuisine not found in training data.")
+    # Clamp rating between 0 and 5 (realistic)
+    rating = max(0, min(5, rating))
+
+    st.success(f"⭐ Predicted Restaurant Rating: **{rating} / 5**")
